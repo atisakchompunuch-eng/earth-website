@@ -275,5 +275,33 @@ location.reload();
 }
 </script>
 
+  <form id="myForm">
+  <input type="text" name="name" placeholder="ชื่อ" required>
+  <input type="email" name="email" placeholder="อีเมล" required>
+  <input type="text" name="phone" placeholder="เบอร์โทร" required>
+  <button type="submit">สมัคร</button>
+</form>
+
+<script>
+document.getElementById("myForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  
+  fetch("https://script.google.com/macros/s/AKfycbwljxT-jRz43M15nlYEJC7LIiys5UhUoKSeUuiPC5Bhv2KEaFP5uZARmSzAmRivFIAOBg/exec", {
+    method: "POST",
+    body: JSON.stringify({
+      name: this.name.value,
+      email: this.email.value,
+      phone: this.phone.value
+    })
+  })
+  .then(res => res.text())
+  .then(data => {
+    alert("สมัครสำเร็จ");
+    document.getElementById("myForm").reset();
+  });
+});
+</script>
+
 </body>
 </html>
+
