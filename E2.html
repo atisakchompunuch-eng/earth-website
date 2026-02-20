@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ระบบเรียกงาน</title>
+
+<style>
+body{font-family:Arial;text-align:center;background:#f4f6f9;}
+.box{background:white;width:320px;margin:80px auto;padding:20px;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,0.2);}
+input,button,select{width:90%;padding:8px;margin:8px;}
+button{background:#e91e63;color:white;border:none;cursor:pointer;}
+.hidden{display:none;}
+
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:20px;}
+
+.cardModel{
+padding:20px;
+background:#fff;
+border:2px solid #ddd;
+border-radius:8px;
+cursor:pointer;
+}
+
+.cardModel.selected{
+border:2px solid #e91e63;
+animation:blink 0.8s infinite;
+}
+
+@keyframes blink{
+0%{background:#fce4ec;}
+50%{background:#e91e63;color:white;}
+100%{background:#fce4ec;}
+}
+
+table{
+width:90%;
+margin:20px auto;
+border-collapse:collapse;
+background:white;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:8px;
+}
+
+.status-wait{color:orange;font-weight:bold;}
+.status-progress{color:blue;font-weight:bold;}
+.status-done{color:green;font-weight:bold;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage" class="box">
+<h2>Login</h2>
+<input type="text" id="username" placeholder="Username">
+<input type="password" id="password" placeholder="Password">
+<button onclick="login()">เข้าสู่ระบบ</button>
+<p style="color:blue;cursor:pointer;" onclick="showRegister()">สมัครสมาชิก</p>
+</div>
+
+<!-- REGISTER -->
+<div id="registerPage" class="box hidden">
+<h2>สมัครสมาชิก</h2>
+<input type="text" id="regUser" placeholder="Username">
+<input type="password" id="regPass" placeholder="Password">
+<button onclick="register()">สมัคร</button>
+<p style="color:blue;cursor:pointer;" onclick="showLogin()">กลับหน้า Login</p>
+</div>
+
+<!-- ADMIN -->
+<div id="adminPage" class="hidden">
+<h2>หน้าสั่งงาน (Admin)</h2>
+
+<div class="grid">
+<div class="cardModel" onclick="selectModel(this,'Model A')">Model A</div>
+<div class="cardModel" onclick="selectModel(this,'Model B')">Model B</div>
+<div class="cardModel" onclick="selectModel(this,'Model C')">Model C</div>
+<div class="cardModel" onclick="selectModel(this,'Model D')">Model D</div>
+</div>
+
+<select id="workerSelect"></select>
+<button onclick="sendJob()">ยืนยันเรียกงาน</button>
+
+<h3>ตารางงาน</h3>
+<table>
+<thead>
+<tr>
+<th>เวลา</th>
+<th>โมเดล</th>
+<th>พนักงาน</th>
+<th>สถานะ</th>
+</tr>
+</thead>
+<tbody id="jobTable"></tbody>
+</table>
+
+<button onclick="logout()">ออกจากระบบ</button>
+</div>
+
+<!-- WORKER -->
+<div id="workerPage" class="hidden">
+<h2>หน้ารอรับแจ้ง</h2>
+<p id="statusText">รอรับคำสั่ง...</p>
+<button id="acceptBtn" class="hidden" onclick="updateStatus('In Progress')">รับงาน</button>
+<button id="doneBtn" class="hidden" onclick="updateStatus('Done')">เสร็จแล้ว</button>
+<br><br>
+<button onclick="logout()">ออกจากระบบ</button>
+</div>
+
+<script>
+let users=JSON.parse(localStorage.getItem("users"))||[];
+let jobs=JSON.parse(localStorage.getItem("jobs"))||[];
+let selectedModel="";
+let currentUser="";
+let currentJobIndex=null;
+
+function saveJobs(){
+localStorage.setItem("jobs",JSON.stringify(jobs));
+}
+
+function showRegister(){
+loginPage.classList.add("hidden");
+registerPage.classList.remove("hidden");
+}
+
+function showLogin(){
+registerPage.classList.add("hidden");
+loginPage.classList.remove("hidden");
+}
+
+function register(){
+const user=regUser.value;
+const pass=regPass.value;
+
+if(!user||!pass){alert("กรอกข้อมูลให้ครบ");return;}
+if(users.find(u=>u.username===user)){
+alert("Username นี้มีแล้ว");return;
+}
+
+users.push({username:user,password:pass});
+localStorage.setItem("users",JSON.stringify(users));
+alert("สมัครสำเร็จ");
+showLogin();
+}
+
+function login(){
+const user=username.value;
+const pass=password.value;
+
+/* ADMIN */
+if(
+(user==="admin" && pass==="admin123") ||
+(user==="Earth" && pass==="earth1403")
+){
+loginPage.classList.add("hidden");
+adminPage.classList.remove("hidden");
+loadWorkers();
+renderTable();
+return;
+}
+
+/* WORKER */
+const found=users.find(u=>u.username===user&&u.password===pass);
+
+if(found){
+currentUser=user;
+loginPage.classList.add("hidden");
+workerPage.classList.remove("hidden");
+}else{
+alert("รหัสผิด หรือยังไม่ได้สมัคร");
+}
+}
+
+function loadWorkers(){
+workerSelect.innerHTML='<option value="">-- เลือกพนักงาน --</option>';
+users.forEach(u=>{
+workerSelect.innerHTML+=`<option>${u.username}</option>`;
+});
+}
+
+function selectModel(el,model){
+document.querySelectorAll(".cardModel").forEach(c=>c.classList.remove("selected"));
+el.classList.add("selected");
+selectedModel=model;
+}
+
+function sendJob(){
+const worker=workerSelect.value;
+if(!selectedModel||!worker){
+alert("เลือกโมเดลและพนักงาน");return;
+}
+
+const job={
+time:new Date().toLocaleTimeString(),
+model:selectedModel,
+worker:worker,
+status:"Waiting"
+};
+
+jobs.push(job);
+saveJobs();
+renderTable();
+
+localStorage.setItem("jobCall",JSON.stringify(job));
+
+selectedModel="";
+document.querySelectorAll(".cardModel").forEach(c=>c.classList.remove("selected"));
+workerSelect.value="";
+}
+
+function renderTable(){
+jobs=JSON.parse(localStorage.getItem("jobs"))||[];
+jobTable.innerHTML="";
+
+jobs.forEach(j=>{
+let statusClass="";
+if(j.status==="Waiting")statusClass="status-wait";
+if(j.status==="In Progress")statusClass="status-progress";
+if(j.status==="Done")statusClass="status-done";
+
+jobTable.innerHTML+=`
+<tr>
+<td>${j.time}</td>
+<td>${j.model}</td>
+<td>${j.worker}</td>
+<td class="${statusClass}">${j.status}</td>
+</tr>`;
+});
+}
+
+window.addEventListener("storage",function(event){
+if(event.key==="jobCall"){
+const data=JSON.parse(event.newValue);
+if(data.worker===currentUser){
+statusText.innerText="ถูกเรียกไปเอา "+data.model;
+acceptBtn.classList.remove("hidden");
+
+jobs=JSON.parse(localStorage.getItem("jobs"));
+currentJobIndex=jobs.findIndex(j=>
+j.time===data.time &&
+j.model===data.model &&
+j.worker===data.worker &&
+j.status==="Waiting"
+);
+}
+}
+});
+
+function updateStatus(newStatus){
+if(currentJobIndex!==null && currentJobIndex>-1){
+jobs[currentJobIndex].status=newStatus;
+saveJobs();
+localStorage.setItem("jobsUpdated",Date.now());
+
+if(newStatus==="In Progress"){
+acceptBtn.classList.add("hidden");
+doneBtn.classList.remove("hidden");
+}else{
+doneBtn.classList.add("hidden");
+statusText.innerText="งานเสร็จแล้ว";
+}
+}
+}
+
+window.addEventListener("storage",function(event){
+if(event.key==="jobsUpdated"){
+renderTable();
+}
+});
+
+function logout(){
+location.reload();
+}
+</script>
+
+</body>
+</html>
